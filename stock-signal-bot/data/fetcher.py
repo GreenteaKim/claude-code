@@ -98,15 +98,20 @@ def _fetch_and_cache(
         # OHLCV
         ohlcv = krx.get_market_ohlcv_by_date(fmt_start, fmt_end, stock_code)
         time.sleep(0.3)  # pykrx 호출 속도 제한
+    except Exception as e:
+        print(f"[fetcher] {stock_code} OHLCV 수집 실패: {e}")
+        return
 
-        # 외국인/기관 순매수
+    # 외국인/기관 순매수 (최근 60일만 — KRX API 제한)
+    try:
+        trading_start = max(start, end - timedelta(days=60))
         trading = krx.get_market_trading_value_by_date(
-            fmt_start, fmt_end, stock_code
+            trading_start.strftime("%Y%m%d"), fmt_end, stock_code
         )
         time.sleep(0.3)
     except Exception as e:
-        print(f"[fetcher] {stock_code} 데이터 수집 실패: {e}")
-        return
+        print(f"[fetcher] {stock_code} 수급 데이터 수집 실패 (무시): {e}")
+        trading = pd.DataFrame()
 
     if ohlcv.empty:
         return
@@ -122,9 +127,14 @@ def _fetch_and_cache(
         }
     )
 
+    ohlcv["ForeignNetBuy"] = None
+    ohlcv["InstitutionNetBuy"] = None
+
     if not trading.empty:
-        ohlcv["ForeignNetBuy"] = trading.get("외국인합계", 0)
-        ohlcv["InstitutionNetBuy"] = trading.get("기관합계", 0)
+        if "외국인합계" in trading.columns:
+            ohlcv["ForeignNetBuy"] = trading["외국인합계"]
+        if "기관합계" in trading.columns:
+            ohlcv["InstitutionNetBuy"] = trading["기관합계"]
 
     save_to_cache(stock_code, ohlcv[["Open", "High", "Low", "Close", "Volume",
                                      "ForeignNetBuy", "InstitutionNetBuy"]])

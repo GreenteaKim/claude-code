@@ -2,6 +2,16 @@
 from __future__ import annotations
 
 import json
+import numpy as np
+
+
+class _Encoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (np.bool_, np.integer)):
+            return obj.item()
+        if isinstance(obj, np.floating):
+            return float(obj)
+        return super().default(obj)
 from datetime import datetime, timedelta
 
 from db.database import get_conn
@@ -20,6 +30,7 @@ def save_signal(signal: EnsembleSignal, volume: int | None = None) -> int:
             for s in signal.strategy_signals
         ],
         ensure_ascii=False,
+        cls=_Encoder,
     )
 
     with get_conn() as conn:
