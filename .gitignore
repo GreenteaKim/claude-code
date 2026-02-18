@@ -12,3 +12,7 @@ data/raw/
 *.csv
 *.parquet
 *.pkl
+
+# stock-signal-bot
+stock-signal-bot/.env
+stock-signal-bot/*.db
